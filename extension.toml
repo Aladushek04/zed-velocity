@@ -1,0 +1,11 @@
+id = "velocity"
+name = "Velocity Template Language"
+version = "0.1.0"
+schema_version = 1
+authors = ["Ivan Sokolov"]
+description = "Velocity Template Language (VTL) support: syntax highlighting, bracket matching, auto-indentation, outline and comment toggling."
+repository = "https://github.com/Aladushek04/zed-velocity"
+
+[grammars.vtl]
+repository = "https://github.com/Aladushek04/tree-sitter-vtl"
+rev = "181cd4f311dc4786dd72a67fd5c90e3fe8dee0cd"

@@ -1,0 +1,5 @@
+name = "Velocity"
+grammar = "vtl"
+path_suffixes = ["vtl", "vm", "velocity"]
+line_comments = ["## "]
+word_characters = ["$", "#", "!"]

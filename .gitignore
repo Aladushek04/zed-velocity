@@ -1,0 +1,9 @@
+# Local tooling and scratch files
+.tooling/
+.scratch/
+
+# Local checkout of the grammar (https://github.com/Aladushek04/tree-sitter-vtl)
+tree-sitter-vtl/
+
+# Zed builds grammars into this directory (`vtl.wasm` and a temporary clone)
+grammars/

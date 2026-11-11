@@ -1,0 +1,198 @@
+#* Hotel booking confirmation.
+
+   A synthetic template that exercises most of the Velocity Template Language:
+   comments, references, directives, macros, literals and the text edge cases a
+   grammar has to deal with. *#
+## --------------------------------------------------------------- setup
+
+#set($title = "Booking confirmation")
+#set($guest = $booking.guest)
+#set($currency = $config.currency)
+#set($nights = 2)
+#set($pricePerNight = 129.50)
+#set($total = $pricePerNight * $nights)
+#set($serviceFee = 0.5)
+#set($services = ["breakfast", "late-checkout"])
+#set($options = {"wifi": true, "parking": false, "pets": false})
+#set($taxBuckets = [1..3])
+#set($hasDiscount = $total > 500 && $guest.isReturning())
+#set($discount = 0)
+#if($hasDiscount)
+  #set($discount = $total * 0.1)
+#end
+#set($isLoyal = $guest.loyaltyLevel != "none")
+#set($showPrices = true)
+#set($hideFees = false)
+#set($rooms = $booking.getRooms())
+#set($literalGreeting = 'Hello, $guest.firstName')
+
+## -------------------------------------------------------------- macros
+
+#** Renders an amount together with the booking currency. *#
+#macro(price $amount $currency)
+  #if($amount && $amount > 0)
+    <span class="price">$number.format("currency", $amount, $currency)</span>
+  #else
+    <span class="price">free</span>
+  #end
+#end
+
+#macro(serviceRow $name $included)
+  <tr class="#if($included)included#{else}extra#end">
+    <td>$name</td>
+    <td>#if($included)yes#{else}no#end</td>
+  </tr>
+#end
+
+#macro(panel $tone)
+  <div class="panel $tone">$!bodyContent</div>
+#end
+
+#define($footer)
+  <footer>Thank you for staying at $hotel.name, $!{guest.firstName}.</footer>
+#end
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>$!{title}</title>
+    <style>
+      /* `#0077cc` and `#fff` are still template text, just like in Velocity */
+      body { background: #fff; color: #333; }
+      a { color: #0077cc; }
+      .price { font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    #if($booking.isCancelled())
+      #stop
+    #end
+
+    <h1>Hi $!{guest.firstName}, your stay at $hotel.name is confirmed</h1>
+
+    <p>
+      #if($guest.loyaltyLevel == "gold" || $guest.loyaltyLevel eq "platinum")
+        Your $guest.loyaltyLevel status unlocks the lounge.
+      #elseif($guest.loyaltyLevel && $guest.loyaltyLevel != "none")
+        Thanks for being a $guest.loyaltyLevel member.
+      #{else}
+        Join our loyalty programme to earn points.
+      #end
+    </p>
+
+    <ul class="stay">
+      <li>Check-in: $dateTool.format("dd MMM yyyy", $booking.checkIn)</li>
+      <li>Check-out: $dateTool.format("dd MMM yyyy", $booking.checkOut)</li>
+      <li>Nights: $nights</li>
+      <li>Room: $rooms[0].type, floor ${rooms[0].floor}</li>
+      <li>Total: #price($total, $currency)</li>
+      #if($discount gt 0)
+        <li>Discount: #price($discount, $currency)</li>
+      #end
+    </ul>
+
+    <h2>Included services</h2>
+    <table>
+      #foreach($service in $services)
+        #if($service == "breakfast")
+          #serviceRow("Breakfast", true)
+        #elseif($service == "late-checkout")
+          #serviceRow("Late check-out", $options.wifi)
+        #else
+          #serviceRow($service, false)
+        #end
+      #end
+    </table>
+
+    <h2>Availability</h2>
+    <ul>
+      #foreach($room in $rooms)
+        #if($room.isSoldOut())
+          #break
+        #end
+        <li>
+          $foreach.count of $rooms.size(): $room.type
+          #if($foreach.first)(recommended)#end
+          #if($foreach.last)(last option)#end
+        </li>
+      #end
+    </ul>
+
+    <h2>Guest details</h2>
+    <dl>
+      <dt>Last name</dt><dd>$!{guest.lastName}</dd>
+      <dt>Email</dt><dd>$!{guest.email}</dd>
+      <dt>Phone</dt><dd>$guest.phone</dd>
+      <dt>Company</dt><dd>$!guest.company</dd>  ## optional, may be missing
+    </dl>
+
+    #if($options['wifi'] && $showPrices)
+      <p>Wi-Fi password: $!{booking.wifiPassword}</p>
+    #end
+    #if($options["parking"])
+      <p>Parking is included.</p>
+    #elseif(!$hideFees && !$options.pets)
+      <p>Parking is available for an extra #price($serviceFee, $currency).</p>
+    #{else}
+      <p>Please ask the front desk about parking.</p>
+    #end
+
+    <h2>City tax</h2>
+    <table>
+      #foreach($bucket in $taxBuckets)
+        #set($amount = $total / $taxBuckets.size() * $bucket)
+        <tr><td>Bucket $bucket</td><td>#price($amount, $currency)</td></tr>
+      #end
+    </table>
+
+    #@panel("warning")
+      <p>Balance due on arrival: #price($total, $currency).</p>
+    #end
+
+    #parse("contact.vm")
+    #include("analytics.vm", "cookie-banner.vm")
+
+    ## A block is defined once and rendered later.
+    $footer.render()
+
+    ## #evaluate() parses its argument as a template at runtime.
+    #evaluate("#if($total > 0)Balance: $total $currency#end")
+
+    <p>Literal references: \$total and \#if are not evaluated.</p>
+    <p>Single quotes stay literal: $literalGreeting</p>
+    <p>A lone $ and # are plain text, and so are prices like 100$.</p>
+
+    #[[ This block is emitted verbatim: $notAReference #notADirective ]]#
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "name": "$!{hotel.name}",
+      "checkin": "$dateTool.format("yyyy-MM-dd", $booking.checkIn)",
+      "checkout": "$dateTool.format("yyyy-MM-dd", $booking.checkOut)",
+      "price": $total,
+      "currency": "$currency"
+    }
+    </script>
+
+    <!-- Invoice fragment for the back office -->
+    <tns:Invoice xmlns:tns="http://example.com/hotel/invoice/1.0">
+      <tns:Number>$!{invoice.number}</tns:Number>
+      <tns:Guest>$!{guest.lastName} $!{guest.firstName}</tns:Guest>
+      <tns:Nights>$nights</tns:Nights>
+      <tns:Amount>$total</tns:Amount>
+      #foreach($line in $invoice.lines)
+        <tns:Line>
+          <tns:Title>$line.title.replace('&quot;', '"')</tns:Title>
+          <tns:Amount>$line.amount</tns:Amount>
+        </tns:Line>
+      #end
+    </tns:Invoice>
+
+    #if($isLoyal)
+      ## Loyal guests get a late check-out window.
+      <p>Late check-out until 14:00 is on us.</p>
+    #end
+  </body>
+</html>
